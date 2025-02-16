@@ -35,7 +35,7 @@ void print_bits(uint8_t byte) {
     }
 }
 
-//As of right now only works for 1 bit at a time
+//As of right now only works for 1 byte at a time
 void write_bits(uint8_t *header, uint8_t bits, int position){
 
     int bit_len = count_sig_bits(bits);
