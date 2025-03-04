@@ -2,6 +2,16 @@
 #include <stdlib.h>
 #include <stdint-gcc.h>
 #include <time.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/udp.h>
+#include <arpa/inet.h>
+#define PORT 53
+#define MAXLINE 1000
+
 //#include <arpa/inet.h>  // Required for htons()
 
 void increment_id(uint16_t *num) {
@@ -207,6 +217,60 @@ int set_arcount(uint8_t *header, uint16_t arcount){
     return 0;
 }
 
+int create_udp_server(){
+
+    ssize_t valread;
+    struct sockaddr_in address;
+    int opt = 1;
+    socklen_t addrlen = sizeof(address);
+    //char buffer[1024] = { 0 };
+    char* hello = "Hello from server";
+
+    int server_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (setsockopt(server_fd, SOL_SOCKET,
+                   SO_REUSEADDR | SO_REUSEPORT, &opt,
+                   sizeof(opt))) {
+        perror("setsockopt");
+        exit(EXIT_FAILURE);
+    }
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(PORT);
+
+    if (bind(server_fd, (struct sockaddr*)&address,sizeof(address))< 0){
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
+
+    int ret;
+    #define BUF_SIZE 1024
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t client_len;
+    char buffer[BUF_SIZE];
+
+    while (1) {
+        client_len = sizeof(client_addr);
+        ret = recvfrom(server_fd, buffer, BUF_SIZE, 0, (struct sockaddr *)&client_addr, &client_len);
+        if (ret < 0) {
+            perror("recvfrom failed");
+            exit(EXIT_FAILURE);
+        }
+
+        printf("Received message: %s from %s:%d\n", buffer, inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+
+        // Echo back to client
+        ret = sendto(server_fd, buffer, ret, 0, (struct sockaddr *)&client_addr, client_len);
+        if (ret < 0) {
+            perror("sendto failed");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    return(server_fd);
+
+}
+
 int main(void) {
 
     uint16_t id = 42900;
@@ -231,11 +295,13 @@ int main(void) {
     set_nscount(header,0);
     set_arcount(header,0);
 
+    /*
     //Print the header in bit representation
     for (int i=0;i<12;i++){
         print_bits(header[i]);
         printf(" ");
     }
+    */
 
     increment_id(&id);
 
@@ -246,6 +312,9 @@ int main(void) {
 
     // Convert to Big Endian
     //id = htons(header);
+
+    printf("Listening on port: %d...\n\n",PORT);
+    create_udp_server();
 
     return 0;
 
